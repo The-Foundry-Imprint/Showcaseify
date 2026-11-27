@@ -98,7 +98,7 @@ export const DEMO_SHOWCASES: DemoShowcase[] = [
     milestones: [
       { text: 'Delivered bespoke typography & dark obsidian system', done: true },
       { text: 'Completed hardware-key & biometric sign-off', done: true },
-      { text: 'Live treasury yield calculator & statements', true: true } as any,
+     { text: 'Live treasury yield calculator & statements', done: true },
       { text: 'Final wealth advisor UAT sign-off', done: false },
     ],
     tags: ['WealthTech', 'ClientMilestone', 'LuxuryUI', 'Advisory'],
