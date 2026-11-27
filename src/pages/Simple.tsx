@@ -23,6 +23,10 @@ export function Home() {
   const [templateFilter, setTemplateFilter] = useState<string>('All')
   const [accessFilter, setAccessFilter] = useState<(typeof ACCESS_FILTERS)[number]>('All Plans')
   const [userPlan] = useState<'free' | 'pro' | 'agency'>('free')
+  const [page, setPage] = useState<number>(1)
+  const [perPage, setPerPage] = useState<number>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 4 : 6
+  )
 
   const saved = listProjects()
   const allCards: DemoShowcase[] = [...saved, ...DEMO_SHOWCASES]
@@ -35,6 +39,23 @@ export function Home() {
       (accessFilter === 'Pro' && item.plan === 'pro')
     return matchesTemplate && matchesAccess
   })
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / perPage))
+  const currentPage = Math.min(page, totalPages)
+  const paginated = visible.slice((currentPage - 1) * perPage, currentPage * perPage)
+
+  const handleResize = () => {
+    const nextSize = window.innerWidth < 640 ? 4 : 6
+    setPerPage(prev => {
+      if (prev !== nextSize) setPage(1)
+      return nextSize
+    })
+  }
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', handleResize)
+    window.addEventListener('resize', handleResize)
+  }
 
   const useTemplate = (tpl: DemoShowcase) => {
     if (tpl.plan === 'pro' && userPlan === 'free') {
@@ -65,7 +86,7 @@ export function Home() {
               <Sparkles size={12} /> 30 Live Showcases & Templates
             </span>
             <span className="text-xs text-white/60 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
-              Free + Pro Aesthetic Editions
+              {perPage} per page · Free + Pro Editions
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
@@ -101,7 +122,10 @@ export function Home() {
           {TEMPLATE_FILTERS.map(f => (
             <button
               key={f}
-              onClick={() => setTemplateFilter(f)}
+              onClick={() => {
+                setTemplateFilter(f)
+                setPage(1)
+              }}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${
                 templateFilter === f
                   ? 'grad text-white font-semibold'
@@ -117,7 +141,10 @@ export function Home() {
           {ACCESS_FILTERS.map(mode => (
             <button
               key={mode}
-              onClick={() => setAccessFilter(mode)}
+              onClick={() => {
+                setAccessFilter(mode)
+                setPage(1)
+              }}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
                 accessFilter === mode
                   ? 'bg-cyan-400 text-slate-950'
@@ -132,18 +159,20 @@ export function Home() {
 
       {/* Results Count */}
       <div className="text-xs text-white/50 flex items-center justify-between">
-        <span>Showing {visible.length} showcases</span>
-        <span>Includes Free starter & Pro executive/3D templates</span>
+        <span>
+          Showing {paginated.length} of {visible.length} showcases (Page {currentPage} of {totalPages})
+        </span>
+        <span>{perPage === 4 ? '4 per page (Phone)' : '6 per page (Tablet & Desktop)'}</span>
       </div>
 
-      {/* 30-Demo Grid */}
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {visible.map(item => {
+      {/* Paginated Showcase Grid (6 on tablet/desktop, 4 on phone) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {paginated.map(item => {
           const isProLocked = item.plan === 'pro' && userPlan === 'free'
           return (
             <div
               key={item.id}
-              className="glass p-4 rounded-3xl border border-white/10 flex flex-col justify-between gap-4 hover:border-cyan-400/35 transition"
+              className="glass p-4 rounded-3xl border border-white/10 flex flex-col justify-between gap-4 hover:border-cyan-400/35 transition min-w-0"
             >
               <ShowCard s={item} />
 
@@ -184,6 +213,39 @@ export function Home() {
           )
         })}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => {
+              setPage(p => Math.max(1, p - 1))
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+            className="glass px-4 py-2 rounded-xl text-xs font-semibold border border-white/10 disabled:opacity-35 hover:bg-white/10 transition"
+          >
+            ← Previous
+          </button>
+
+          <span className="text-xs text-white/70 px-2">
+            Page <strong className="text-cyan-400">{currentPage}</strong> of {totalPages}
+          </span>
+
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => {
+              setPage(p => Math.min(totalPages, p + 1))
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+            className="glass px-4 py-2 rounded-xl text-xs font-semibold border border-white/10 disabled:opacity-35 hover:bg-white/10 transition"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   )
 }
