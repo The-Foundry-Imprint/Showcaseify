@@ -1,102 +1,50 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Sparkles, Wand2, ExternalLink, Trash2, Check } from 'lucide-react'
+import { Sparkles, Wand2, ExternalLink, Trash2, Check, Crown, Lock } from 'lucide-react'
 import { ShowCard } from '../components/ShowCard'
 import { uid, Showcase } from '../services/aiParser'
 import { listProjects, deleteProject } from '../lib/store'
+import { DEMO_SHOWCASES, DemoShowcase } from '../data/demoShowcases'
 
-const STARTER_TEMPLATES: Showcase[] = [
-  {
-    id: 'tpl-payflow',
-    title: 'PayFlow Merchant Checkout v2.4 — Sprint 6 Update',
-    status: 'On Track',
-    progress: 85,
-    metrics: ['Conversion +14.8%', 'Success 99.4%', 'Load 420ms', '140 Stores'],
-    milestones: [
-      { text: 'Built one-tap saved card and bank transfer selector on mobile', done: true },
-      { text: 'Added automatic idempotency keys and retry queue for webhooks', done: true },
-      { text: 'Completed load testing up to 2,500 concurrent checkouts/min', done: true },
-      { text: 'Finalize multi-currency display formatting for international buyers', done: false },
-      { text: 'Roll out v2.4 to 100% of production traffic by Friday', done: false },
-    ],
-    tags: ['Fintech', 'CheckoutUX', 'Paystack', 'Performance'],
-    template: 'Progress Dashboard',
-    palette: 'Dark Neon',
-    overlay: 0.45,
-    blur: 2,
-    plan: 'free',
-  },
-  {
-    id: 'tpl-pulse',
-    title: 'Pulse CRM — Public Launch & Q4 Growth Metrics',
-    status: 'Launched',
-    progress: 100,
-    metrics: ['$12.5k MRR', '99.9% Uptime', '+42% MoM', '320 Teams'],
-    milestones: [
-      { text: 'Closed private beta with 40 founding design agencies', done: true },
-      { text: 'Launched Stripe & Paystack multi-currency subscriptions', done: true },
-      { text: 'Featured #2 Product of the Day on launch week', done: true },
-      { text: 'Shipped automated Slack & WhatsApp deal alerts', done: true },
-    ],
-    tags: ['SaaS', 'BuildInPublic', 'Growth', 'Launch'],
-    template: 'Project Showcase Card',
-    palette: 'Cyber Cyan',
-    overlay: 0.45,
-    blur: 2,
-    plan: 'free',
-  },
-  {
-    id: 'tpl-studio',
-    title: 'Kora Mobile Banking — Client Design Sign-Off',
-    status: 'Milestone Hit',
-    progress: 75,
-    metrics: ['48 Screens', '4.9★ TestFlight', '-35% Dropoff'],
-    milestones: [
-      { text: 'Delivered interactive Figma prototype & dark mode tokens', done: true },
-      { text: 'Completed biometric onboarding & virtual card flows', done: true },
-      { text: 'Usability testing with 25 Lagos & London beta users', done: true },
-      { text: 'Developer handoff & Lottie micro-animation assets', done: false },
-    ],
-    tags: ['UIUX', 'ClientUpdate', 'MobileApp', 'Fintech'],
-    template: 'Client Milestones',
-    palette: 'Minimal Mono',
-    overlay: 0.45,
-    blur: 2,
-    plan: 'free',
-  },
-  {
-    id: 'tpl-ai',
-    title: 'VoxNote AI — Weekly Indie Hacker Changelog',
-    status: 'In Progress',
-    progress: 60,
-    metrics: ['1,850 Users', '18k Notes', '0.8s Latency'],
-    milestones: [
-      { text: 'Whisper v3 voice-to-structured-card pipeline live', done: true },
-      { text: 'Added 4K PNG & multi-page PDF device exports', done: true },
-      { text: 'Custom background photo blur & overlay controls', done: false },
-      { text: 'Team workspace roles & custom domain mapping', done: false },
-    ],
-    tags: ['AI', 'IndieHacker', 'Changelog', 'ShipFast'],
-    template: 'Social Carousel',
-    palette: 'Dark Neon',
-    overlay: 0.45,
-    blur: 2,
-    plan: 'free',
-  },
-]
+const TEMPLATE_FILTERS = [
+  'All',
+  'Progress dashboard',
+  'Project showcase',
+  'Executive Brief',
+  'Client milestones',
+  'Social carousel',
+  'Before vs. After',
+] as const
 
-const FILTERS = ['All', 'Progress Dashboard', 'Project Showcase Card', 'Client Milestones', 'Social Carousel']
+const ACCESS_FILTERS = ['All Plans', 'Free', 'Pro'] as const
 
 export function Home() {
   const nav = useNavigate()
-  const [filter, setFilter] = useState('All')
+  const [templateFilter, setTemplateFilter] = useState<string>('All')
+  const [accessFilter, setAccessFilter] = useState<(typeof ACCESS_FILTERS)[number]>('All Plans')
+  const [userPlan] = useState<'free' | 'pro' | 'agency'>('free')
+
   const saved = listProjects()
+  const allCards: DemoShowcase[] = [...saved, ...DEMO_SHOWCASES]
 
-  // Merge user's saved projects with starter templates so Home always looks rich
-  const allCards = [...saved, ...STARTER_TEMPLATES]
-  const visible = filter === 'All' ? allCards : allCards.filter(c => c.template === filter)
+  const visible = allCards.filter(item => {
+    const matchesTemplate = templateFilter === 'All' || item.template === templateFilter
+    const matchesAccess =
+      accessFilter === 'All Plans' ||
+      (accessFilter === 'Free' && item.plan === 'free') ||
+      (accessFilter === 'Pro' && item.plan === 'pro')
+    return matchesTemplate && matchesAccess
+  })
 
-  const useTemplate = (tpl: Showcase) => {
+  const useTemplate = (tpl: DemoShowcase) => {
+    if (tpl.plan === 'pro' && userPlan === 'free') {
+      const goUpgrade = window.confirm(
+        `"${tpl.title}" is a Pro template. Upgrade to Pro to unlock all advanced & executive templates—or view Plans now?`
+      )
+      if (goUpgrade) nav('/subscription')
+      return
+    }
+
     const cloned: Showcase = {
       ...tpl,
       id: uid(),
@@ -106,6 +54,139 @@ export function Home() {
     }
     nav('/create', { state: { template: cloned } })
   }
+
+  return (
+    <div className="max-w-7xl mx-auto p-4 space-y-6">
+      {/* Flashy Hero Banner */}
+      <div className="relative overflow-hidden glass p-6 sm:p-8 rounded-3xl border border-cyan-400/25 bg-gradient-to-br from-violet-950/50 via-[#090d12] to-cyan-950/40 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="space-y-2 max-w-2xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-300 bg-cyan-500/10 border border-cyan-400/25 px-3 py-1 rounded-full">
+              <Sparkles size={12} /> 30 Live Showcases & Templates
+            </span>
+            <span className="text-xs text-white/60 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+              Free + Pro Aesthetic Editions
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+            Make every update look{' '}
+            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-cyan-400 bg-clip-text text-transparent">
+              unforgettable.
+            </span>
+          </h1>
+          <p className="text-sm text-white/65">
+            Explore flashy project cards, sleek executive briefs, and visual milestones backed by rich photography—clone free templates or unlock Pro layouts.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <Link
+            to="/create"
+            className="grad inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-cyan-500/20 hover:opacity-95 transition"
+          >
+            <Wand2 size={16} /> Create New Visual
+          </Link>
+          <Link
+            to="/subscription"
+            className="glass border border-amber-400/30 text-amber-300 hover:bg-white/10 inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl font-semibold text-xs transition"
+          >
+            <Crown size={14} /> Unlock Pro
+          </Link>
+        </div>
+      </div>
+
+      {/* Plan Filter + Template Category Filter Pills */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {TEMPLATE_FILTERS.map(f => (
+            <button
+              key={f}
+              onClick={() => setTemplateFilter(f)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${
+                templateFilter === f
+                  ? 'grad text-white font-semibold'
+                  : 'glass text-white/70 hover:text-white border border-white/10'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/10 p-1 rounded-full self-start">
+          {ACCESS_FILTERS.map(mode => (
+            <button
+              key={mode}
+              onClick={() => setAccessFilter(mode)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
+                accessFilter === mode
+                  ? 'bg-cyan-400 text-slate-950'
+                  : 'text-white/65 hover:text-white'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Results Count */}
+      <div className="text-xs text-white/50 flex items-center justify-between">
+        <span>Showing {visible.length} showcases</span>
+        <span>Includes Free starter & Pro executive/3D templates</span>
+      </div>
+
+      {/* 30-Demo Grid */}
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {visible.map(item => {
+          const isProLocked = item.plan === 'pro' && userPlan === 'free'
+          return (
+            <div
+              key={item.id}
+              className="glass p-4 rounded-3xl border border-white/10 flex flex-col justify-between gap-4 hover:border-cyan-400/35 transition"
+            >
+              <ShowCard s={item} />
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
+                <span
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                    item.plan === 'pro'
+                      ? 'bg-amber-400/15 text-amber-300 border border-amber-400/30'
+                      : 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/30'
+                  }`}
+                >
+                  {item.plan === 'pro' ? 'Pro Template' : 'Free Template'}
+                </span>
+
+                <div className="flex items-center gap-2">
+                  {saved.some(s => s.id === item.id) && (
+                    <Link
+                      to={`/p/${item.id}`}
+                      className="glass px-3 py-2 rounded-xl text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1"
+                    >
+                      <ExternalLink size={13} /> Live
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => useTemplate(item)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition ${
+                      isProLocked
+                        ? 'bg-white/10 hover:bg-white/15 text-amber-300 border border-amber-400/30'
+                        : 'grad text-white hover:opacity-95'
+                    }`}
+                  >
+                    {isProLocked ? <Lock size={13} /> : <Wand2 size={13} />}
+                    {isProLocked ? 'Unlock Pro' : 'Use template'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
