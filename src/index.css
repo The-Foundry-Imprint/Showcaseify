@@ -1,0 +1,4 @@
+@tailwind base;@tailwind components;@tailwind utilities;
+body{background:#09090B;color:#fafafa;font-family:'Plus Jakarta Sans',Inter,sans-serif}
+.glass{@apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl}
+.grad{background:linear-gradient(90deg,#8B5CF6,#06B6D4)}
