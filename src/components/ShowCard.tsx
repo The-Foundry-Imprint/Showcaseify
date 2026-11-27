@@ -1,26 +1,255 @@
 import { forwardRef } from 'react'
+import { Sparkles, Check, ArrowUpRight } from 'lucide-react'
 import type { Showcase } from '../services/aiParser'
-const PAL: Record<string, string> = { 'Dark Neon': 'from-violet-600/40 to-cyan-500/30', 'Cyber Cyan': 'from-cyan-500/50 to-blue-700/30', 'Minimal Mono': 'from-zinc-700/40 to-zinc-900/40', 'Pastel Glass': 'from-pink-300/30 to-sky-300/30' }
-type P = { s: Showcase; onChange?: (s: Showcase) => void }
-export const ShowCard = forwardRef<HTMLDivElement, P>(({ s, onChange }, ref) => {
-  const edit = !!onChange, set = (p: Partial<Showcase>) => onChange?.({ ...s, ...p })
-  return (
-    <div ref={ref} className={`relative overflow-hidden rounded-3xl p-6 w-full max-w-xl aspect-[4/5] bg-gradient-to-br ${PAL[s.palette] ?? PAL['Dark Neon']} border border-white/10`}>
-      {s.bg && <><img src={s.bg} className="absolute inset-0 w-full h-full object-cover" style={{ filter: `blur(${s.blur}px)` }} alt="" /><div className="absolute inset-0 bg-black" style={{ opacity: s.overlay }} /></>}
-      <div className="relative z-10 h-full flex flex-col gap-4">
-        <span className="self-start text-xs px-3 py-1 rounded-full bg-white/10">{s.status}</span>
-        <h2 contentEditable={edit} suppressContentEditableWarning onBlur={e => set({ title: e.currentTarget.textContent || s.title })} className="text-3xl font-extrabold outline-none">{s.title}</h2>
-        <div className="h-2 rounded-full bg-white/10"><div className="h-2 rounded-full grad transition-all" style={{ width: `${s.progress}%` }} /></div>
-        <div className="flex flex-wrap gap-2">{s.metrics.map((m, i) => <span key={i} className="px-3 py-1 rounded-lg bg-black/30 text-sm font-semibold">{m}</span>)}</div>
-        <ul className="space-y-2 overflow-auto">{s.milestones.map((m, i) => (
-          <li key={i}><label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={m.done} onChange={() => {
-            const ms = s.milestones.map((x, j) => j === i ? { ...x, done: !x.done } : x)
-            set({ milestones: ms, progress: Math.round(100 * ms.filter(x => x.done).length / ms.length) }) }} />{m.text}</label></li>))}</ul>
-        <div className="mt-auto flex items-end justify-between">
-          <div className="flex gap-1 flex-wrap">{s.tags.map(t => <span key={t} className="text-xs text-white/60">#{t}</span>)}</div>
-          {s.plan === 'free' && <a href="/create" className="text-[10px] text-white/70 bg-black/40 px-2 py-1 rounded">⚡ Built with Showcaseify – Create yours free</a>}
+
+type ThemeSpec = {
+  border: string
+  glow: string
+  accentText: string
+  accentBg: string
+  surface: string
+}
+
+const THEMES: Record<string, ThemeSpec> = {
+  'After hours': {
+    border: 'border-cyan-500/40',
+    glow: 'shadow-[0_0_40px_-12px_rgba(6,182,212,0.25)]',
+    accentText: 'text-cyan-400',
+    accentBg: 'bg-cyan-500',
+    surface: 'from-cyan-950/30 via-[#090d10] to-[#07090b]',
+  },
+  'Night bloom': {
+    border: 'border-fuchsia-500/40',
+    glow: 'shadow-[0_0_40px_-12px_rgba(217,70,239,0.22)]',
+    accentText: 'text-fuchsia-400',
+    accentBg: 'bg-fuchsia-500',
+    surface: 'from-violet-950/35 via-[#0b0910] to-[#07090b]',
+  },
+  'Soft focus': {
+    border: 'border-rose-300/35',
+    glow: 'shadow-[0_0_40px_-12px_rgba(251,113,133,0.18)]',
+    accentText: 'text-rose-300',
+    accentBg: 'bg-rose-400',
+    surface: 'from-rose-950/25 via-[#0c0a0d] to-[#07090b]',
+  },
+  'Studio mono': {
+    border: 'border-white/15',
+    glow: '',
+    accentText: 'text-zinc-200',
+    accentBg: 'bg-zinc-200',
+    surface: 'from-zinc-900/60 via-[#090b0d] to-[#07090b]',
+  },
+}
+
+type Props = {
+  s: Showcase
+  onChange?: (s: Showcase) => void
+  onSaveToProjects?: () => void
+  onOpenModal?: () => void
+}
+
+export const ShowCard = forwardRef<HTMLDivElement, Props>(
+  ({ s, onChange, onSaveToProjects, onOpenModal }, ref) => {
+    const edit = !!onChange
+    const set = (patch: Partial<Showcase>) => onChange?.({ ...s, ...patch })
+    const theme = THEMES[s.palette] ?? THEMES['After hours']
+    const layout = (s as Showcase & { layout?: 'Minimal' | 'Grid' | 'Compact' }).layout ?? 'Grid'
+
+    const toggleMilestone = (idx: number) => {
+      if (!edit) return
+      const next = s.milestones.map((m, i) => (i === idx ? { ...m, done: !m.done } : m))
+      const doneCount = next.filter(m => m.done).length
+      const pct = next.length ? Math.round((doneCount / next.length) * 100) : s.progress
+      set({ milestones: next, progress: pct })
+    }
+
+    return (
+      <div ref={ref} className="w-full space-y-4">
+        {/* Main Showcase Card */}
+        <div
+          className={`relative overflow-hidden rounded-2xl border ${theme.border} ${theme.glow} bg-gradient-to-br ${theme.surface} transition-all`}
+        >
+          {s.bg && (
+            <>
+              <img
+                src={s.bg}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ filter: `blur(${s.blur}px)` }}
+              />
+              <div
+                className="absolute inset-0 bg-black"
+                style={{ opacity: s.overlay }}
+              />
+            </>
+          )}
+
+          <div className="relative z-10 p-5 sm:p-6 space-y-5">
+            {/* Hero / Visual Banner Block */}
+            <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0d1115]/90 p-5 sm:p-6 min-h-[190px] flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] ${theme.accentText}`}>
+                  <span className={`h-2 w-2 rounded-full ${theme.accentBg}`} />
+                  {s.status || 'PROJECT UPDATE'} / {String(s.progress).padStart(2, '0')}
+                </span>
+                <span className="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-white/70">
+                  {s.template}
+                </span>
+              </div>
+
+              <div className="mt-8 space-y-2 max-w-2xl">
+                <h2
+                  contentEditable={edit}
+                  suppressContentEditableWarning
+                  onBlur={e => set({ title: e.currentTarget.textContent?.trim() || s.title })}
+                  className="text-2xl sm:text-4xl font-bold tracking-tight text-white outline-none focus:ring-1 focus:ring-cyan-400/50 rounded"
+                >
+                  {s.title}
+                </h2>
+                <p
+                  contentEditable={edit}
+                  suppressContentEditableWarning
+                  onBlur={e =>
+                    set({
+                      subtitle: e.currentTarget.textContent?.trim() || '',
+                    } as Partial<Showcase>)
+                  }
+                  className="text-sm text-white/65 outline-none"
+                >
+                  {(s as Showcase & { subtitle?: string }).subtitle ||
+                    'Turn raw sprint notes, metrics, and milestones into a crisp shareable showcase.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Metrics & Milestones Row */}
+            {layout !== 'Minimal' && (
+              <div className={`grid ${layout === 'Grid' ? 'sm:grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                {/* Metrics & Tags */}
+                <div className="rounded-xl border border-white/10 bg-[#0b0e12]/85 p-4 space-y-4">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-white/45">
+                    Key Metrics
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(s.metrics.length ? s.metrics : [`${s.progress}% complete`, 'On schedule']).map(
+                      (m, i) => (
+                        <div
+                          key={i}
+                          className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5"
+                        >
+                          <div className="text-sm sm:text-base font-bold text-white">{m}</div>
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  {s.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {s.tags.map(tag => (
+                        <span
+                          key={tag}
+                          className="text-xs px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/10 text-white/75"
+                        >
+                          #{tag.replace(/^#/, '')}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Interactive Milestones */}
+                <div className="rounded-xl border border-white/10 bg-[#0b0e12]/85 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">
+                      Milestones
+                    </span>
+                    <span className={`text-xs font-semibold ${theme.accentText}`}>
+                      {s.progress}%
+                    </span>
+                  </div>
+
+                  <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className={`h-full ${theme.accentBg} transition-all duration-300`}
+                      style={{ width: `${Math.min(100, Math.max(0, s.progress))}%` }}
+                    />
+                  </div>
+
+                  <ul className="space-y-2 pt-1 max-h-44 overflow-y-auto">
+                    {s.milestones.map((ms, idx) => (
+                      <li key={idx}>
+                        <button
+                          type="button"
+                          onClick={() => toggleMilestone(idx)}
+                          className="w-full flex items-start gap-2.5 text-left text-xs sm:text-sm text-white/85 hover:text-white transition"
+                        >
+                          <span
+                            className={`mt-0.5 h-4 w-4 rounded flex items-center justify-center shrink-0 border transition ${
+                              ms.done
+                                ? `${theme.accentBg} border-transparent text-slate-950`
+                                : 'border-white/25 bg-white/5'
+                            }`}
+                          >
+                            {ms.done && <Check size={11} strokeWidth={3} />}
+                          </span>
+                          <span className={ms.done ? 'line-through text-white/50' : ''}>
+                            {ms.text}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Attribution & Save Action */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10 text-xs">
+              <button
+                type="button"
+                onClick={onOpenModal}
+                className="inline-flex items-center gap-1.5 text-white/70 hover:text-cyan-300 transition"
+              >
+                <Sparkles size={13} className={theme.accentText} />
+                <span>
+                  {s.plan === 'free' ? 'Powered by Showcaseify' : 'Showcaseify Pro'}
+                </span>
+              </button>
+
+              {onSaveToProjects && (
+                <button
+                  type="button"
+                  onClick={onSaveToProjects}
+                  className="inline-flex items-center gap-1.5 text-white/75 hover:text-white font-medium transition"
+                >
+                  <span>Save to My projects</span>
+                  <ArrowUpRight size={13} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-        {s.cta && s.plan === 'agency' && <a href={s.cta.url} className="grad text-center rounded-xl py-2 font-bold">{s.cta.label}</a>}
+
+        {/* Bottom Summary Strip (STORY / STYLE / PROGRESS / SHARING) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-white/10 pt-3 px-1 text-xs">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-white/40">Story</div>
+            <div className="font-semibold text-white/90 mt-0.5 truncate">{s.template}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-white/40">Style</div>
+            <div className="font-semibold text-white/90 mt-0.5">{s.palette}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-white/40">Progress</div>
+            <div className="font-semibold text-white/90 mt-0.5">{s.progress}% complete</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-white/40">Sharing</div>
+            <div className="font-semibold text-white/90 mt-0.5">Private draft</div>
+          </div>
+        </div>
       </div>
-    </div>)
-})
+    )
+  }
+)
