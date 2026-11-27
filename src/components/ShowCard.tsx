@@ -92,9 +92,16 @@ export const ShowCard = forwardRef<HTMLDivElement, Props>(
                   <span className={`h-2 w-2 rounded-full ${theme.accentBg}`} />
                   {s.status || 'PROJECT UPDATE'} / {String(s.progress).padStart(2, '0')}
                 </span>
+               <div className="flex items-center gap-2">
+                {s.plan === 'pro' && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-400 to-cyan-400 text-slate-950">
+                    PRO
+                  </span>
+                )}
                 <span className="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-white/70">
                   {s.template}
                 </span>
+              </div>
               </div>
 
               <div className="mt-8 space-y-2 max-w-2xl">
