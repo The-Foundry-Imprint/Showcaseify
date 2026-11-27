@@ -96,31 +96,59 @@ export default function Create({ initial }: { initial?: Showcase }) {
     setS(prev => ({ ...prev, ...parsed }))
     setBusy(false)
   }
+const exportRef = useRef<HTMLDivElement>(null)
 
-  const capturePng = async () => {
-    if (!ref.current) return ''
-    return toPng(ref.current, { pixelRatio: s.plan === 'free' ? 1.5 : 3 })
+const capturePng = async () => {
+  const target = exportRef.current ?? ref.current
+  if (!target) return ''
+  return toPng(target, {
+    width: 1080,
+    height: 1350,
+    canvasWidth: 1080,
+    canvasHeight: 1350,
+    pixelRatio: 1,
+    cacheBust: true,
+  })
+}
+
+const triggerDownload = async (href: string, filename: string) => {
+  const safeName = `${(s.title || 'showcase').toLowerCase().replace(/[^a-z0-9-_]+/gi, '-')}-${filename}`
+
+  // Attempt native file share sheet when supported (great on mobile/tablet browsers)
+  try {
+    if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+      const res = await fetch(href)
+      const blob = await res.blob()
+      const file = new File([blob], safeName, { type: blob.type || 'image/png' })
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: s.title })
+        return
+      }
+    }
+  } catch {
+    // Fall back to direct file download below
   }
 
-  const triggerDownload = (href: string, filename: string) => {
-    const a = document.createElement('a')
-    a.href = href
-    a.download = filename
-    a.click()
-  }
+  const a = document.createElement('a')
+  a.href = href
+  a.download = safeName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
 
-  const handlePng = async () => {
-    const dataUrl = await capturePng()
-    if (dataUrl) triggerDownload(dataUrl, `${s.title || 'showcase'}.png`)
-  }
+const handlePng = async () => {
+  const dataUrl = await capturePng()
+  if (dataUrl) await triggerDownload(dataUrl, '1080x1350.png')
+}
 
-  const handlePdf = async () => {
-    const dataUrl = await capturePng()
-    if (!dataUrl) return
-    const pdf = new jsPDF()
-    pdf.addImage(dataUrl, 'PNG', 10, 10, 190, 140)
-    pdf.save(`${s.title || 'showcase'}.pdf`)
-  }
+const handlePdf = async () => {
+  const dataUrl = await capturePng()
+  if (!dataUrl) return
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [1080, 1350] })
+  pdf.addImage(dataUrl, 'PNG', 0, 0, 1080, 1350)
+  pdf.save(`${(s.title || 'showcase').toLowerCase().replace(/[^a-z0-9-_]+/gi, '-')}-1080x1350.pdf`)
+}
 
   const handleCopyLink = async () => {
     await saveProject(s)
@@ -448,6 +476,80 @@ export default function Create({ initial }: { initial?: Showcase }) {
           />
         </div>
       </div>
+      {/* Hidden 1080x1350 Social Post Export Frame (Prevents Text Clipping on Save) */}
+    <div className="fixed -left-[9999px] top-0 pointer-events-none" aria-hidden="true">
+      <div
+        ref={exportRef}
+        className="w-[1080px] h-[1350px] bg-[#070a0d] text-white p-12 flex flex-col justify-between relative overflow-hidden"
+      >
+        {s.bg && (
+          <>
+            <img
+              src={s.bg}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: `blur(${s.blur}px)` }}
+            />
+            <div className="absolute inset-0 bg-black" style={{ opacity: Math.max(s.overlay, 0.65) }} />
+          </>
+        )}
+
+        <div className="relative z-10 flex flex-col justify-between h-full gap-8">
+          <div className="rounded-3xl border border-white/15 bg-[#0c1015]/90 p-9 space-y-4">
+            <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-cyan-400 font-bold">
+              <span>{s.status || 'PROJECT UPDATE'}</span>
+              <span>{s.template}</span>
+            </div>
+            <h2 className="text-5xl font-extrabold leading-tight break-words">{s.title}</h2>
+            {s.subtitle && (
+              <p className="text-xl text-white/75 leading-relaxed break-words">{s.subtitle}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            {s.metrics.map((m, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-white/15 bg-[#0c1015]/90 p-6"
+              >
+                <div className="text-2xl font-extrabold text-cyan-300 break-words">{m}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-3xl border border-white/15 bg-[#0c1015]/90 p-8 space-y-4">
+            <div className="flex items-center justify-between text-sm uppercase tracking-widest text-white/60">
+              <span>Milestones</span>
+              <span className="text-cyan-400 font-bold">{s.progress}%</span>
+            </div>
+            <div className="h-3 w-full rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full bg-cyan-400" style={{ width: `${s.progress}%` }} />
+            </div>
+            <div className="space-y-3 pt-2">
+              {s.milestones.map((ms, idx) => (
+                <div key={idx} className="flex items-start gap-3 text-lg">
+                  <span className="font-bold text-cyan-400 shrink-0">{ms.done ? '✓' : '○'}</span>
+                  <span className={`break-words ${ms.done ? 'line-through text-white/55' : 'text-white'}`}>
+                    {ms.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-sm text-white/70 pt-2">
+            <div className="flex flex-wrap gap-2">
+              {s.tags.map(t => (
+                <span key={t} className="px-3 py-1 rounded-lg bg-white/10">
+                  #{t.replace(/^#/, '')}
+                </span>
+              ))}
+            </div>
+            <span className="font-semibold text-cyan-300">Powered by Showcaseify</span>
+          </div>
+        </div>
+      </div>
+    </div>
     </div>
   )
 }
